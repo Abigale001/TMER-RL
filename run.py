@@ -3,15 +3,13 @@ import time
 import math
 from torchnlp.nn import Attention
 import torch.utils.data as Data
-# from rank_metrics import ndcg_at_k
 from data.path.path_attention.att import *
 from data.data_utils import *
 import pickle
-# from recbole.evaluator import TopKEvaluator
 import os
 import io
 import eva
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f'run.py device: {device}')
@@ -111,21 +109,8 @@ def rec_net(train_loader, test_loader, node_emb, sequence_tensor):
     best_ndcg_5 = 0.0
     best_ndcg_10 = 0.0
     best_ndcg_20 = 0.0
-
-    # all_pos = []
-    # all_neg = []
-    # test_data.numpy()
-    # for index in range(test_data.shape[0]):
-    #     user = test_data[index][0].item()
-    #     item = test_data[index][1].item()
-    #     link = test_data[index][2].item()
-    #     if link == 1:
-    #         all_pos.append((index, user, item))
-    #     else:
-    #         all_neg.append((index, user, item))
     recommendation = Recommendation(100).to(device)
-    # optimizer = torch.optim.Adam(recommendation.parameters(), lr=5e-4)
-    # optimizer = torch.optim.Adam(recommendation.parameters(), lr=5e-5)
+
     optimizer = torch.optim.Adam(recommendation.parameters(), lr=1e-4)
     for epoch in range(100):
         train_start_time = time.time()
@@ -142,9 +127,6 @@ def rec_net(train_loader, test_loader, node_emb, sequence_tensor):
             running_loss += loss_train.item()
         train_time = time.time() - train_start_time
         print(f'epoch: {epoch}, training loss: {running_loss}, train time: {train_time}')
-
-        # if (epoch+1) % 25 != 0:
-        #     continue
 
 
         testing_start_time = time.time()
@@ -205,27 +187,12 @@ def rec_net(train_loader, test_loader, node_emb, sequence_tensor):
         if best_ndcg_20 < ndcg20_avg:
             best_ndcg_20 = ndcg20_avg
 
-        # print(" hit@1, 5, 10, 20, 50: " + "{:.4f}".format(hit1_avg) + "," + "{:.4f}".format(hit5_avg) + "," + "{:.4f}".format(
-        #     hit10_avg) + "," + "{:.4f}".format(hit20_avg) + ",\n" +
-        #       "ndcg@1, 5, 10, 20, 50: " + "{:.4f}".format(ndcg1_avg) + "," + "{:.4f}".format(ndcg5_avg) + "," + "{:.4f}".format(
-        #     ndcg10_avg) + "," + "{:.4f}".format(ndcg20_avg)) + ",\n" + "testing time: {:.4f}".format(testing_time)
         print(f"epo:{epoch}|"
               f"HR@1:{hit1_avg:.4f} | HR@5:{hit5_avg:.4f} | HR@10:{hit10_avg:.4f} | HR@20:{hit20_avg:.4f} |"
               f" NDCG@1:{ndcg1_avg:.4f} | NDCG@5:{ndcg5_avg:.4f} | NDCG@10:{ndcg10_avg:.4f}| NDCG@20:{ndcg20_avg:.4f} |"
               f" best_HR@1:{best_hit_1:.4f} | best_HR@5:{best_hit_5:.4f} | best_HR@10:{best_hit_10:.4f} | best_HR@20:{best_hit_20:.4f} |"
               f" best_NDCG@1:{best_ndcg_1:.4f} | best_NDCG@5:{best_ndcg_5:.4f} | best_NDCG@10:{best_ndcg_10:.4f} | best_NDCG@20:{best_ndcg_20:.4f} |"
               f" train_time:{train_time:.2f} | test_time:{testing_time:.2f}")
-
-
-
-        #
-        #
-        # print(f"epo:{epoch}|"
-        #       f"HR@1:{hit_rate_1:.4f} | HR@5:{hit_rate_5:.4f} | HR@10:{hit_rate_10:.4f} | HR@20:{hit_rate_20:.4f} |"
-        #       f" NDCG@1:{all_ndcg_1:.4f} | NDCG@5:{all_ndcg_5:.4f} | NDCG@10:{all_ndcg_10:.4f}| NDCG@20:{all_ndcg_20:.4f} |"
-        #       f" best_HR@1:{best_hit_1:.4f} | best_HR@5:{best_hit_5:.4f} | best_HR@10:{best_hit_10:.4f} | best_HR@20:{best_hit_20:.4f} |"
-        #       f" best_NDCG@1:{best_ndcg_1:.4f} | best_NDCG@5:{best_ndcg_5:.4f} | best_NDCG@10:{best_ndcg_10:.4f} | best_NDCG@20:{best_ndcg_20:.4f} |"
-        #       f" train_time:{train_time:.2f} | test_time:{testing_time:.2f}")
 
 
 
@@ -264,15 +231,11 @@ if __name__ == '__main__':
     ui_dict = load_ui_seq_relation(user_history_file)
 
     # load all ui embeddings and ii embeddings
-    # ui_metapaths_list = ['uibi', 'uibici', 'uici', 'uicibi']
-    # ii_metapaths_list = ['ibibi', 'ibici', 'ibiui', 'icibi', 'icici', 'iciui', 'iuiui']
     metapath_emb_folder = 'data/'+data_name+'/path/meta_path_instances_representation/'
     user_item_direct_emb_file = 'data/'+data_name+'/representations/user_item_dic.wv'
-    # user_item_direct_emb = pickle.load(open(user_item_direct_emb_file, 'rb'))
     user_item_direct_emb = CPU_Unpickler(open(user_item_direct_emb_file, 'rb')).load()
     item_item_direct_emb_file = 'data/'+data_name+'/path/user_history/item_item.wv'
     item_item_direct_emb = load_item_item_wv(item_item_direct_emb_file)
-    # ui_all_paths_emb = load_ui_metapath_instances_emb(ui_metapaths_list, metapath_emb_folder, user_num, ui_dict, user_item_direct_emb)
     ui_all_paths_emb = load_ui_instances_emb(metapath_emb_folder, user_num, ui_dict, user_item_direct_emb)
     edges_id_dict_file = 'data/'+data_name+'/path/user_history/user_history.edges2id'
     edges_id_dict = pickle.load(open(edges_id_dict_file, 'rb'))
@@ -283,109 +246,109 @@ if __name__ == '__main__':
 
 
 
-    # # 1. user-item instances slf attention and for each user item, get one instance embedding.
-    # print('start training user-item instance self attention module...')
-    # maxpool = Maxpooling()
-    # ui_paths_att_emb = defaultdict()
-    # t = time.time()
-    # for u in range(user_num):
-    #     if u % 100 == 0:
-    #         t_here = time.time() - t
-    #         print('user ',u, 'time: ',t_here)
-    #     user_item_paths_emb = ui_all_paths_emb[u]
-    #     this_user_ui_paths_att_emb = defaultdict()
-    #     item_index = 0
-    #     # for i in ui_dict[u][:4]: # because there are 4 items for each user in the training data
-    #     for i in ui_dict[u]:
-    #         item_index += 1
-    #         if len(ui_all_paths_emb[u][(u, i)]) == 1:
-    #             this_user_ui_paths_att_emb[(u, i)] = ui_all_paths_emb[u][(u, i)]
-    #         else:
-    #             slf_att_input = torch.Tensor(ui_all_paths_emb[u][(u, i)]).unsqueeze(0)
-    #             this_user_ui_paths_att_emb[(u, i)] = instances_slf_att(slf_att_input)
-    #             # user-item instances to one. for each user-item pair, only one instance is needed.
-    #             max_pooling_input = torch.from_numpy(this_user_ui_paths_att_emb[(u, i)])
-    #             get_one_ui = maxpool(max_pooling_input).squeeze(0)
-    #             this_user_ui_paths_att_emb[(u, i)] = get_one_ui
-    #     ui_paths_att_emb[u] = this_user_ui_paths_att_emb
-    # ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) +'_ui_batch_paths_att_emb.pkl'
-    # pickle.dump(ui_paths_att_emb, open(ui_batch_paths_att_emb_pkl_file, 'wb'))
+    # 1. user-item instances slf attention and for each user item, get one instance embedding.
+    print('start training user-item instance self attention module...')
+    maxpool = Maxpooling()
+    ui_paths_att_emb = defaultdict()
+    t = time.time()
+    for u in range(user_num):
+        if u % 100 == 0:
+            t_here = time.time() - t
+            print('user ',u, 'time: ',t_here)
+        user_item_paths_emb = ui_all_paths_emb[u]
+        this_user_ui_paths_att_emb = defaultdict()
+        item_index = 0
+        # for i in ui_dict[u][:4]: # because there are 4 items for each user in the training data
+        for i in ui_dict[u]:
+            item_index += 1
+            if len(ui_all_paths_emb[u][(u, i)]) == 1:
+                this_user_ui_paths_att_emb[(u, i)] = ui_all_paths_emb[u][(u, i)]
+            else:
+                slf_att_input = torch.Tensor(ui_all_paths_emb[u][(u, i)]).unsqueeze(0)
+                this_user_ui_paths_att_emb[(u, i)] = instances_slf_att(slf_att_input)
+                # user-item instances to one. for each user-item pair, only one instance is needed.
+                max_pooling_input = torch.from_numpy(this_user_ui_paths_att_emb[(u, i)])
+                get_one_ui = maxpool(max_pooling_input).squeeze(0)
+                this_user_ui_paths_att_emb[(u, i)] = get_one_ui
+        ui_paths_att_emb[u] = this_user_ui_paths_att_emb
+    ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) +'_ui_batch_paths_att_emb.pkl'
+    pickle.dump(ui_paths_att_emb, open(ui_batch_paths_att_emb_pkl_file, 'wb'))
 
-    # # 2. item-item instances slf attention
-    # print('start training item-item instance self attention module...')
-    # start_t_ii = time.time()
-    # ii_paths_att_emb = defaultdict()
-    # for u in range(user_num):
-    #     if u % 100 == 0:
-    #         t_here = time.time() - start_t_ii
-    #         print('user ',u, 'time: ',t_here)
-    #     item_item_paths_emb = ii_all_paths_emb[u]
-    #     num_item = len(ui_dict[u])
-    #     this_user_ii_paths_att_emb = defaultdict()
-    #     item_index = 0
-    #     for i_index in range(num_item - 1):
-    #     # for i_index in range(4 - 1):
-    #         item_index += 1
-    #         i1 = ui_dict[u][i_index]
-    #         i2 = ui_dict[u][i_index + 1]
-    #         if len(ii_all_paths_emb[u][(i1, i2)]) == 1:
-    #             this_user_ii_paths_att_emb[(i1, i2)] = ii_all_paths_emb[u][(i1, i2)]
-    #         else:
-    #             slf_att_input = torch.Tensor(ii_all_paths_emb[u][(i1, i2)]).unsqueeze(0)
-    #             this_user_ii_paths_att_emb[(i1, i2)] = instances_slf_att(slf_att_input).squeeze(0)
-    #             this_user_ii_paths_att_emb[(i1, i2)] = torch.from_numpy(this_user_ii_paths_att_emb[(i1, i2)])
-    #     ii_paths_att_emb[u] = this_user_ii_paths_att_emb
-    # ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
-    # pickle.dump(ii_paths_att_emb, open(ii_batch_paths_att_emb_pkl_file, 'wb'))
+    # 2. item-item instances slf attention
+    print('start training item-item instance self attention module...')
+    start_t_ii = time.time()
+    ii_paths_att_emb = defaultdict()
+    for u in range(user_num):
+        if u % 100 == 0:
+            t_here = time.time() - start_t_ii
+            print('user ',u, 'time: ',t_here)
+        item_item_paths_emb = ii_all_paths_emb[u]
+        num_item = len(ui_dict[u])
+        this_user_ii_paths_att_emb = defaultdict()
+        item_index = 0
+        for i_index in range(num_item - 1):
+        # for i_index in range(4 - 1):
+            item_index += 1
+            i1 = ui_dict[u][i_index]
+            i2 = ui_dict[u][i_index + 1]
+            if len(ii_all_paths_emb[u][(i1, i2)]) == 1:
+                this_user_ii_paths_att_emb[(i1, i2)] = ii_all_paths_emb[u][(i1, i2)]
+            else:
+                slf_att_input = torch.Tensor(ii_all_paths_emb[u][(i1, i2)]).unsqueeze(0)
+                this_user_ii_paths_att_emb[(i1, i2)] = instances_slf_att(slf_att_input).squeeze(0)
+                this_user_ii_paths_att_emb[(i1, i2)] = torch.from_numpy(this_user_ii_paths_att_emb[(i1, i2)])
+        ii_paths_att_emb[u] = this_user_ii_paths_att_emb
+    ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
+    pickle.dump(ii_paths_att_emb, open(ii_batch_paths_att_emb_pkl_file, 'wb'))
 
 
 
-    # # 3. user and item embedding
-    # ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
-    # ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ui_batch_paths_att_emb.pkl'
-    # # ii_paths_att_emb = pickle.load(open(ii_batch_paths_att_emb_pkl_file, 'rb'))
-    # ii_paths_att_emb = CPU_Unpickler(open(ii_batch_paths_att_emb_pkl_file, 'rb')).load()
-    # # ui_paths_att_emb = torch.load(io.BytesIO(open(ui_batch_paths_att_emb_pkl_file, 'rb')), map_location=torch.device('cpu'))
-    # ui_paths_att_emb = CPU_Unpickler(open(ui_batch_paths_att_emb_pkl_file, 'rb')).load()
-    # # ui_paths_att_emb = torch.load(ui_batch_paths_att_emb_pkl_file, map_location='cpu', pickle_module=pickle)
-    # # ui_paths_att_emb = pickle.load(open(ui_batch_paths_att_emb_pkl_file, 'rb'))
-    # print('start updating user and item embedding...')
-    # start_t_u_i = time.time()
-    # sequence_concat = []
-    # for u in range(user_num):
-    #     if u % 100 == 0:
-    #         t_here = time.time() - start_t_u_i
-    #         print('user ',u, 'time: ',t_here)
-    #     user_sequence_concat = defaultdict()
-    #     this_user_ui_paths_dic = ui_paths_att_emb[u]
-    #     this_user_ii_paths_dic = ii_paths_att_emb[u]
-    #     # for user uid, item1
-    #     u_emb = node_emb[u].reshape((1, -1)).to(device)
-    #     i1_id = ui_dict[u][0]
-    #     u_i1_emb = this_user_ui_paths_dic[(u, i1_id)].reshape((1, -1)).to(device)
-    #     item1_emb = node_emb[i1_id].reshape((1, -1))
-    #     # input: u_i1_emb, item1_emb   after attention: the same dimension
-    #     item1_att = item_attention(item1_emb, u_i1_emb.unsqueeze(0)).reshape((1, -1))
-    #     item1_att = torch.from_numpy(item1_att).to(device)
-    #
-    #
-    #     user_sequence_concat[0] = torch.cat([u_emb, u_i1_emb, item1_att], dim=0).to(device)
-    #
-    #     last_item_att = item1_att
-    #     for i_index in range(1, user_n_items):
-    #         i1 = ui_dict[u][i_index - 1]
-    #         i2 = ui_dict[u][i_index]
-    #         item_att_input = this_user_ii_paths_dic[(i1, i2)].unsqueeze(0)
-    #         ii_1 = item_attention(last_item_att, item_att_input).reshape((1, -1))
-    #         ii_1 = torch.from_numpy(ii_1).to(device)
-    #         ii_2 = item_attention(node_emb[i2].unsqueeze(0), item_att_input).reshape((1, -1))
-    #         ii_2 = torch.from_numpy(ii_2).to(device)
-    #         user_sequence_concat[i_index] = torch.cat([u_emb, ii_1, ii_2], dim=0)
-    #         last_item_att = ii_2
-    #     sequence_concat.append(torch.cat([user_sequence_concat[i] for i in range(0, user_n_items - 1)], 0))
-    # sequence_tensor = torch.stack(sequence_concat)
-    # sequence_tensor_pkl_name = data_name + '_' + str(negative_num) + '_sequence_tensor.pkl'
-    # pickle.dump(sequence_tensor, open(sequence_tensor_pkl_name, 'wb'))
+    # 3. user and item embedding
+    ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
+    ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ui_batch_paths_att_emb.pkl'
+    # ii_paths_att_emb = pickle.load(open(ii_batch_paths_att_emb_pkl_file, 'rb'))
+    ii_paths_att_emb = CPU_Unpickler(open(ii_batch_paths_att_emb_pkl_file, 'rb')).load()
+    # ui_paths_att_emb = torch.load(io.BytesIO(open(ui_batch_paths_att_emb_pkl_file, 'rb')), map_location=torch.device('cpu'))
+    ui_paths_att_emb = CPU_Unpickler(open(ui_batch_paths_att_emb_pkl_file, 'rb')).load()
+    # ui_paths_att_emb = torch.load(ui_batch_paths_att_emb_pkl_file, map_location='cpu', pickle_module=pickle)
+    # ui_paths_att_emb = pickle.load(open(ui_batch_paths_att_emb_pkl_file, 'rb'))
+    print('start updating user and item embedding...')
+    start_t_u_i = time.time()
+    sequence_concat = []
+    for u in range(user_num):
+        if u % 100 == 0:
+            t_here = time.time() - start_t_u_i
+            print('user ',u, 'time: ',t_here)
+        user_sequence_concat = defaultdict()
+        this_user_ui_paths_dic = ui_paths_att_emb[u]
+        this_user_ii_paths_dic = ii_paths_att_emb[u]
+        # for user uid, item1
+        u_emb = node_emb[u].reshape((1, -1)).to(device)
+        i1_id = ui_dict[u][0]
+        u_i1_emb = this_user_ui_paths_dic[(u, i1_id)].reshape((1, -1)).to(device)
+        item1_emb = node_emb[i1_id].reshape((1, -1))
+        # input: u_i1_emb, item1_emb   after attention: the same dimension
+        item1_att = item_attention(item1_emb, u_i1_emb.unsqueeze(0)).reshape((1, -1))
+        item1_att = torch.from_numpy(item1_att).to(device)
+    
+    
+        user_sequence_concat[0] = torch.cat([u_emb, u_i1_emb, item1_att], dim=0).to(device)
+    
+        last_item_att = item1_att
+        for i_index in range(1, user_n_items):
+            i1 = ui_dict[u][i_index - 1]
+            i2 = ui_dict[u][i_index]
+            item_att_input = this_user_ii_paths_dic[(i1, i2)].unsqueeze(0)
+            ii_1 = item_attention(last_item_att, item_att_input).reshape((1, -1))
+            ii_1 = torch.from_numpy(ii_1).to(device)
+            ii_2 = item_attention(node_emb[i2].unsqueeze(0), item_att_input).reshape((1, -1))
+            ii_2 = torch.from_numpy(ii_2).to(device)
+            user_sequence_concat[i_index] = torch.cat([u_emb, ii_1, ii_2], dim=0)
+            last_item_att = ii_2
+        sequence_concat.append(torch.cat([user_sequence_concat[i] for i in range(0, user_n_items - 1)], 0))
+    sequence_tensor = torch.stack(sequence_concat)
+    sequence_tensor_pkl_name = data_name + '_' + str(negative_num) + '_sequence_tensor.pkl'
+    pickle.dump(sequence_tensor, open(sequence_tensor_pkl_name, 'wb'))
 
     # 4. recommendation
     print('start training recommendation module...')
