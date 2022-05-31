@@ -36,9 +36,7 @@ SHOW_DISTR = False
 
 PF_RESAMPLE_STEP = 3
 NUM_PAR_PF = 100
-# PP_EXIST = True
-# PP_RATIO = 0.3
-# PP_LOSS_TYPE = 'adv' # 'mse', 'adv', 'density'
+
 
 
 NUM_PAR_SMC_INIT = 3
@@ -64,7 +62,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal
 from torch.optim import Adam
-# from config import *
 from torch.distributions.categorical import Categorical
 
 #########################
@@ -137,35 +134,16 @@ class QNetwork(nn.Module):
         x2 = self.linear6(x2)
         return x1, x2
 
-# class GaussianPolicy(nn.Module):
-    
-#     def __init__(self, DIM_STATE, DIM_ACTION, DIM_HIDDEN):
-#         super(GaussianPolicy, self).__init__()
-#         self.linear1 = nn.Linear(DIM_STATE,DIM_HIDDEN)
-#         self.linear2 = nn.Linear(DIM_HIDDEN,DIM_HIDDEN)
-#         self.mean_linear = nn.Linear(DIM_HIDDEN, DIM_ACTION)
-#         self.log_std_linear = nn.Linear(DIM_HIDDEN, DIM_ACTION)
-#         self.apply(weights_init_)
 
 class GaussianPolicy(nn.Module):
     
-    # def __init__(self, num_inputs, num_actions, hidden_dim):
-    #     super(GaussianPolicy, self).__init__()
-    #     self.linear1 = nn.Linear(num_inputs, hidden_dim)
-    #     self.linear2 = nn.Linear(hidden_dim, hidden_dim)
-    #     self.mean_linear = nn.Linear(hidden_dim, num_actions)
-    #     self.log_std_linear = nn.Linear(hidden_dim, num_actions)
-    #     self.apply(weights_init_)
+
     def __init__(self, DIM_STATE=100, DIM_ACTION=10, DIM_HIDDEN=256):
         super(GaussianPolicy, self).__init__()
-        # self.linear1 = nn.Linear(DIM_STATE, DIM_HIDDEN)
         self.linear1 = nn.Linear(100, 256)
-        # self.linear2 = nn.Linear(DIM_HIDDEN, DIM_HIDDEN)
         self.linear2 = nn.Linear(256, 256)
         self.mean_linear = nn.Linear(256, 1)
         self.log_std_linear = nn.Linear(256, 1)       
-        # self.mean_linear = nn.Linear(DIM_HIDDEN, DIM_ACTION)
-        # self.log_std_linear = nn.Linear(DIM_HIDDEN, DIM_ACTION)
         self.apply(weights_init_)
 
     def forward(self, state):
@@ -190,16 +168,12 @@ class GaussianPolicy(nn.Module):
         log_prob = normal.log_prob(x_t) #30,2
         # Enforcing Action Bound
         log_prob -= torch.log(1 - action.pow(2) + const)  #30,2
-        # log_prob = log_prob.sum(1, keepdim=True)  #30,1    按行相加，保持矩阵二维特性
         return action, log_prob, torch.tanh(mean)
 
     def get_action(self, state):
         a, log_prob, _ = self.sample(state)  #a 30,2   log 30,1   _ 30,2 
-        # return a, log_prob[0]
-        # a -1,1
         a=a*ACTION_RANGE
         a=a.floor()
-        #a 0,10
         a=a+ACTION_RANGE
         return a, log_prob
 
@@ -221,7 +195,6 @@ class SMCP:
         self.target_entropy = -torch.prod(torch.Tensor(DIM_ACTION)).item()
         self.log_alpha = torch.zeros(1, requires_grad=True)
         self.alpha_optim = Adam([self.log_alpha], lr=PLA_LR)
-        # self.policy = GaussianPolicy(DIM_STATE * (NUM_PAR_SMC_INIT + 1), DIM_ACTION, DIM_HIDDEN)
         self.policy = GaussianPolicy(DIM_STATE * (NUM_PAR_SMC + 1), DIM_ACTION, DIM_HIDDEN)
         self.policy_optim = Adam(self.policy.parameters(), lr=PLA_LR)
         self.buffer = ReplayMemory(replay_buffer_size)
@@ -245,45 +218,6 @@ class SMCP:
         self.critic.load_state_dict(stats['c_net'])
 
 
-    # def get_mean_state(self, state, weight):
-    #     if len(state.shape) == 2:
-    #         # states: [num_particles, dim_state]
-    #         # weights: [num_particles]
-    #         state = torch.FloatTensor(state)
-    #         weight = weight.unsqueeze(1)
-    #         mean_state = torch.sum(state * weight, 0)
-    #     elif len(state.shape) == 3:
-    #         # states: torch.Size([batch, num_particles, dim_state])
-    #         # weights: torch.Size([batch, num_particles])
-    #         # return: torch.Size([batch, dim_state])
-    #         weight = weight.unsqueeze(2)
-    #         mean_state = torch.sum(state * weight, 1).view(state.shape[0], state.shape[2])
-    #     return mean_state
-
-    # def density_loss(self, p, w, s):
-    #     # p: [B * K, dim_s]
-    #     # w: [B, K]
-    #     # s: [B, dim_s]
-    #     s = s.unsqueeze(1).repeat(1, NUM_PAR_PF, 1)  # [B, K, dim_s]
-    #     x = torch.exp(-(p - s).pow(2).sum(-1))  # [B, K]
-    #     x = (w * x).sum(-1)  # [B]
-    #     loss = -torch.log(const + x)
-    #     return loss
-
-    # def par_weighted_var(self, par_states, par_weight, mean_state):
-    #     # par_states: [B, K, dim_s]
-    #     # par_weight: [B, K]
-    #     # mean_state: [B, dim_s]
-    #     num_par = par_states.shape[1]
-    #     mean_state = mean_state.unsqueeze(1).repeat(1, num_par, 1)  # [B, K, dim_s]
-    #     x = par_weight * (par_states - mean_state).abs().sum(-1)  # [B, K]
-    #     return x.sum(-1)  # [B]
-
-    # def par_var(self, par_states):
-    #     # par_states: [B, K, dim_s]
-    #     mean_state = par_states.mean(1).unsqueeze(1).repeat(1, NUM_PAR_PF, 1)  # mean_state: [B, K, dim_s]
-    #     x = (par_states - mean_state).pow(2).sum(-1)  # [B, K]
-    #     return x.mean(-1)  # [B]
 
     def get_q(self, state, action):
         qf1, qf2 = self.critic(state, action)  #30,1   30,1
@@ -328,13 +262,11 @@ class SMCP:
         mask_batch = torch.FloatTensor(np.float32(1 - done_batch)).unsqueeze(1)
         state_batch=state_batch.squeeze(1)
         done_batch=torch.Tensor(done_batch)
-        # print(state_batch)
 
         # ------------------------
         #  Train SAC
         # ------------------------
 
-        # with torch.no_grad():
 
    
         next_state_action, next_state_log_pi, _ = self.policy.sample(state_batch.view(BATCH_SIZE, -1))
@@ -350,10 +282,7 @@ class SMCP:
         self.critic_optim.zero_grad()
         critic_loss.backward(retain_graph=True)
         self.critic_optim.step()
-        # with torch.autograd.set_detect_anomaly(True):
-        # self.critic_optim.zero_grad()
-        # qf2_loss.backward()
-        # self.critic_optim.step()
+
 
         pi, log_pi, _ = self.policy.sample(state_batch.view(BATCH_SIZE, -1))
         qf1_pi, qf2_pi = self.critic(state_batch, pi)
