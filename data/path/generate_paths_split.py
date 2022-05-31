@@ -1,6 +1,3 @@
-# from data.path.rl_model import SMCP
-# from data.path.rl_model import GaussianPolicy
-# from data.path.rl_model import ReplayMemory
 
 import sys
 sys.path.append('../../')
@@ -22,7 +19,6 @@ from collections import namedtuple
 from random import sample
 
 SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
-# from rl_model import *
 from data.path.rl_model import *
 
 import math
@@ -64,7 +60,7 @@ class Prepared_data:
         end = time.time()
         print('Load data finished, used time %.2fs' % (end - start))
 
-    ###123
+
 
     def load_embedding(self, embfile):
         nodewv_dic = pickle.load(open(embfile, 'rb'))
@@ -134,7 +130,7 @@ class Prepared_data:
         return self.ic_dict, self.ci_dict
 
 
-# candidate neighbours 数量不固定
+
 def find_candidate(start, data, no_neighobor=[]):
 
     # The strategy to explore user-item paths and item-item paths is the same.
@@ -166,7 +162,6 @@ def find_candidate(start, data, no_neighobor=[]):
         return -1
 
 
-# todo: want to delete no neighbor nodes
 def top_k(start, candidate_neighbors, data):
     refinefolder = args.refinefolder
     ic_relation_file = refinefolder + 'item_category.relation'
@@ -183,10 +178,8 @@ def top_k(start, candidate_neighbors, data):
     h1 = data.embeddings[start]
     h1 = torch.Tensor(h1)
 
-    ##candidate_id 和 neighbour_id是一样的
     action_values = []
     candidate_id = []
-    # print(f'candidate_neighrbor:{candidate_neighbors}')
 
     if len(candidate_neighbors) <= 50:
         # if this neighbor doesn't have a neighbor, then not visit it.
@@ -205,7 +198,6 @@ def top_k(start, candidate_neighbors, data):
         cos = nn.CosineSimilarity(dim=0, eps=1e-6)
         action_value = cos(h1, h2)
 
-        # action_value=torch.nn.functional.softmax((h1*(h2.t()))/(torch.norm(h1)*torch.norm(h2)))
         action_values.append(action_value)
         candidate_id.append(n)
 
@@ -221,9 +213,7 @@ def top_k(start, candidate_neighbors, data):
     else:
         neighbour_id = candidate_id
         topk_value = action_values
-    # print('neighbour_id', neighbour_id)
     return neighbour_id, topk_value
-    # return topk_index,topk_value
 
 
 def action_to_index(action, topk_index, topk_value):
@@ -237,14 +227,11 @@ def action_to_index(action, topk_index, topk_value):
     else:
         next_state = topk_index[action_2-1]
         next_state_value = topk_value[action_2 - 1]
-    # next_state=next_state[0]
     return next_state, next_state_value
 
 
 def train_path(args, start, end, data):
     rl_planner = SMCP()
-    # action_model=GaussianPolicy(100,args.k,256)
-    # buffer=ReplayMemory(args.replay_buffer_size)
 
     refinefolder = args.refinefolder
     ic_relation_file = refinefolder + 'item_category.relation'
@@ -257,9 +244,6 @@ def train_path(args, start, end, data):
     csize = args.csize
     bsize = args.bsize
 
-    # because of using RL, don't need to pre-define meta-paths
-    # ui_metapaths_list = ['uibi', 'uibici', 'uici', 'uicibi']
-    # ii_metapahts_list = ['ibibi', 'ibici', 'ibiui', 'icibi', 'icici', 'iciui', 'iuiui']
 
     outputinstancesfolder = args.outputinstancesfolder
     output_ui_paths_filename = outputinstancesfolder + 'ui.paths'
@@ -273,25 +257,12 @@ def train_path(args, start, end, data):
     categoryid = data.categoryid
     brandid = data.brandid
 
-    # candidate={}
 
-    # initial_state_emb=data.embeddings[start]
-    # path=[]
-    # path.append(start)
 
     candidate_neighbors = find_candidate(start, data)
-    # if candidate_neighbors==-1:
 
     topk_index, topk_value = top_k(start, candidate_neighbors, data)
-
-    # topk_id=[]
-    # candidate_id[]
-    # neighbors=[]
-    # for m in topk_index:
-    #     topk_id.append(candidate_id[m])
-
-    # state=initial_state
-
+    
     state = start
     state_emb = data.embeddings[state]
     done = 2
@@ -310,32 +281,24 @@ def train_path(args, start, end, data):
 
         for k in range(args.max_length - 1):
 
-            ##更新candidate_neighbours,topk_index
 
             # state 100,
             action, _ = rl_planner.policy.get_action(state_emb)
 
-            # action=math.floor(action)
-            # next_node=start+action
-            # path.append(next_node)
 
-            # next_state=data.embeddings[next_node]
-            # state 直接是一个数
+
             next_state, next_state_value = action_to_index(action, topk_index, topk_value)
 
             next_state_emb = data.embeddings[next_state]
 
             path.append(next_state)
             values.append(next_state_value)
-            # reward-=1
 
             if next_state == end:
                 done = 1
 
                 reward += 100
 
-                # reward = torch.Tensor(reward)
-                # done = torch.Tensor(done)
                 reward = torch.from_numpy(np.array(reward))
                 done = torch.from_numpy(np.array(done))
                 next_state_emb = next_state_emb.squeeze()
@@ -347,15 +310,9 @@ def train_path(args, start, end, data):
                 reward = reward.detach().numpy()
                 next_state_emb = next_state_emb.detach().numpy()
                 done = done.detach().numpy()
-                # print('push 1')
-                # print(f'state_emb:{state_emb}')
-                # print(f'action:{action}')
-                # print(f'reward:{reward}')
-                # print(f'next_state_emb:{next_state_emb}')
-                # print(f'done:{done}')
+
                 rl_planner.buffer.push(state_emb, action, reward, next_state_emb, done)
                 print('end_path:', path)
-                # path_score = np.prod(values)
                 path_score = np.average(values)
                 paths_list.append(path)
                 path_score_list.append(path_score)
@@ -368,8 +325,6 @@ def train_path(args, start, end, data):
                     if end in candidate_neighbors:
                         done = 1
                         reward += 100
-                        # reward = torch.Tensor(reward)
-                        # done = torch.Tensor(done)
                         reward = torch.from_numpy(np.array(reward))
                         done = torch.from_numpy(np.array(done))
                         next_state_emb = next_state_emb.squeeze()
@@ -393,14 +348,12 @@ def train_path(args, start, end, data):
                         path.append(end)
                         values.append(next_state_value)
                         print('end_path:', path)
-                        # path_score = np.prod(values)
                         path_score = np.average(values)
                         paths_list.append(path)
                         path_score_list.append(path_score)
                         break
 
 
-            # reward = torch.Tensor(reward)
             reward = torch.from_numpy(np.array(reward))
             done = torch.from_numpy(np.array(done))
             next_state_emb = next_state_emb.squeeze()
@@ -414,12 +367,7 @@ def train_path(args, start, end, data):
             done = done.detach().numpy()
 
             state_1 = state_emb
-            # print('push 3')
-            # print(f'state_emb:{state_emb}')
-            # print(f'action:{action}')
-            # print(f'reward:{reward}')
-            # print(f'next_state_emb:{next_state_emb}')
-            # print(f'done:{done}')
+
             rl_planner.buffer.push(state_emb, action, reward, next_state_emb, done)
 
             state = next_state
@@ -428,25 +376,11 @@ def train_path(args, start, end, data):
 
             state_emb = data.embeddings[state]
 
-
-            # candidate_neighbors = find_candidate(state, data, no_neighobor)
-            # if candidate_neighbors != -1:
-            #     # delete nodes with no neighbors
-            #     if len(candidate_neighbors) < 50: # because candidate_neighbors sometime is an int
-            #         for n in candidate_neighbors:
-            #             if find_candidate(n, data) == -1:
-            #                 candidate_neighbors.remove(n)
-
             if candidate_neighbors == -1 or len(candidate_neighbors) == 0:
                 no_neighobor.append(state)
                 reward -= 10
                 done = 1
-                # print('push 4')
-                # print(f'state_emb:{state_emb}')
-                # print(f'action:{action}')
-                # print(f'reward:{reward}')
-                # print(f'next_state_emb:{next_state_emb}')
-                # print(f'done:{done}')
+
                 rl_planner.buffer.push(state_1, action, reward, state_emb, done)
                 break
 
@@ -488,24 +422,15 @@ def get_path(args, start, end, data):
         scores = []
         path.append(start)
 
-        ##更新candidate_neighbours,topk_index
 
         # state 100,
         action, _ = rl_planner.policy.get_action(state_emb)
 
-        # action=math.floor(action)
-        # next_node=start+action
-        # path.append(next_node)
 
-        # next_state=data.embeddings[next_node]
-        # state 直接是一个数
         next_state, next_state_value = action_to_index(action, topk_index, topk_value)
-        # next_state_1=next_state[0]
-        # next_state_emb=data.embeddings[next_state_1]
         next_state_emb = data.embeddings[next_state]
         path.append(next_state)
         values.append(next_state_value)
-        # reward-=1
 
         if next_state == end:
             done = 1
@@ -513,7 +438,6 @@ def get_path(args, start, end, data):
             reward += 10
 
             reward = torch.from_numpy(np.array(reward))
-            # done = torch.Tensor(done)
             done = torch.from_numpy(np.array(done))
             next_state_emb = next_state_emb.squeeze()
 
@@ -522,16 +446,10 @@ def get_path(args, start, end, data):
             reward = reward.detach().numpy()
             next_state_emb = next_state_emb.detach().numpy()
             done = done.detach().numpy()
-            # print('push 5')
-            # print(f'state_emb:{state_emb}')
-            # print(f'action:{action}')
-            # print(f'reward:{reward}')
-            # print(f'next_state_emb:{next_state_emb}')
-            # print(f'done:{done}')
+
             rl_planner.buffer.push(state_emb, action, reward, next_state_emb, done)
             print('end_path:', path)
             good_path.append(path)
-            # path_score = np.prod(values)
             path_score = np.average(values)
             paths_list.append(path)
             path_score_list.append(path_score)
@@ -543,8 +461,6 @@ def get_path(args, start, end, data):
                 if end in candidate_neighbors:
                     done = 1
                     reward += 100
-                    # reward = torch.Tensor(reward)
-                    # done = torch.Tensor(done)
                     reward = torch.from_numpy(np.array(reward))
                     done = torch.from_numpy(np.array(done))
                     next_state_emb = next_state_emb.squeeze()
@@ -567,7 +483,6 @@ def get_path(args, start, end, data):
                     path.append(end)
                     values.append(next_state_value)
                     print('end_path:', path)
-                    # path_score = np.prod(values)
                     path_score = np.average(values)
                     paths_list.append(path)
                     path_score_list.append(path_score)
@@ -589,16 +504,7 @@ def get_path(args, start, end, data):
 
         state_emb = data.embeddings[state]
 
-        # candidate_neighbors = find_candidate(state, data)
-        # delete nodes with no neighbors
-        # if candidate_neighbors != -1:
-        #     if len(candidate_neighbors) < 50:
-        #         for n in candidate_neighbors:
-        #             if find_candidate(n, data) == -1:
-        #                 candidate_neighbors.remove(n)
-
         if candidate_neighbors == -1 or len(candidate_neighbors) == 0:
-            # no_neighobor.append(state)
             break
 
         topk_index, topk_value = top_k(state, candidate_neighbors, data)
@@ -654,9 +560,7 @@ def ui_path(args):
             print(f'\n\nstart:{start}\t end:{end}')
 
 
-            ## [[1,2],[4,5,6,7],[7,5,3]]  good path
             
-            # good_path = get_path(args, start, end, data)
             paths_list, path_score_list = get_path(args, start, end, data)
             paths_list_unique = []
             path_score_list_unique = []
@@ -665,7 +569,6 @@ def ui_path(args):
                 if i not in paths_list_unique:
                     paths_list_unique.append(i)
                     path_score_list_unique.append(path_score_list[index])
-            # zip(paths_list, path_score_list) and order
             zipped_paths_scores = list(zip(paths_list_unique, path_score_list_unique))
             res = sorted(zipped_paths_scores, key=lambda x: x[1],reverse=True)
 
@@ -724,17 +627,14 @@ def ii_path(args):
 
             if find_candidate(start, data) == -1:
                 break
-            ## [[1,2],[4,5,6,7],[7,5,3]]  good path
 
             paths_list, path_score_list = get_path(args, start, end, data)
             paths_list_unique = []
             path_score_list_unique = []
-            # delete same paths
             for index, i in enumerate(paths_list):
                 if i not in paths_list_unique:
                     paths_list_unique.append(i)
                     path_score_list_unique.append(path_score_list[index])
-            # zip(paths_list, path_score_list) and order
             zipped_paths_scores = list(zip(paths_list_unique, path_score_list_unique))
             res = sorted(zipped_paths_scores, key=lambda x: x[1], reverse=True)
 
@@ -754,42 +654,7 @@ def ii_path(args):
     ii_file.close()
 
 
-    # # for each user, explore user-item paths using RL
-    # for userid in data.userid:
-    #     state=data.embeddings[userid]
-    #     neigh_range=[]
 
-    #     neigh_range.append(data.load_ui)
-
-    #     for itemid in data.ui_dict[userid]:
-
-    #         # for each user, for each user's item, we explore paths between these two specific nodes
-    #         # do RL, start node: userid , target node: itemid
-
-    #         # todo: this part should get learned paths from userid to itemid. Each path should have a score. (see D. in III. in draft paper)
-    #         # the paths should be saved in `output_ui_paths_filename`, the format is like `data/Goodreads_mystery/path/all*/uibi.paths`
-    #         # descending score and get top q=5 path from total p paths (if p<=5, then get p paths)
-    #         raise NotImplementedError
-    #         # this part should be
-    #         # RL_explore = RL_class()
-    #         # RL_explore.explore_path(start_node = userid, end_node = itemid, ...)
-
-    # # for each user, explore item-item paths using RL
-    # for userid in range(usize):
-    #     num_item = len(data.ui_dict[userid])
-    #     for item_index in range(num_item - 1):
-    #         item_1 = data.ui_dict[userid][item_index]
-    #         item_2 = data.ui_dict[userid][item_index + 1]
-    #         # for each user, for each user's item, we explore paths between these two specific nodes
-    #         # do RL, start node: item_1 , target node: item_2
-
-    #         # todo: this part should get learned paths from item_1 to item_2. Each path should have a score. (see D. in III. in draft paper)
-    #         # the paths should be saved in `output_ii_paths_filename`, the format is like `data/Goodreads_mystery/path/all*/uibi.paths`
-    #         # descending score and get top q=5 path from total p paths (if p<=5, then get p paths)
-    #         raise NotImplementedError
-    #         # this part should be
-    #         # RL_explore = RL_class()
-    #         # RL_explore.explore_path(start_node = item_1, end_node = item_2, ...)
 
 
 if __name__ == '__main__':
@@ -799,35 +664,24 @@ if __name__ == '__main__':
     parser.add_argument('path_type', type=str, default='user',
                         nargs='?', help='user for user-item paths; item for item-item paths')
 
-    parser.add_argument('basedatafolder', type=str, default='../Goodreads_mystery/',
+    parser.add_argument('basedatafolder', type=str, default='../Amazon_Music/',
                         nargs='?', help='this data base folder')
     parser.add_argument('outputinstancesfolder', type=str,
-                        default='../Goodreads_mystery/path/all_ui_ii_instance_paths/',
+                        default='../Amazon_Music/path/all_ui_ii_instance_paths/',
                         nargs='?', help='this instances folder')
-    parser.add_argument('refinefolder', type=str, default='../Goodreads_mystery/refine/',
+    parser.add_argument('refinefolder', type=str, default='../Amazon_Music/refine/',
                         nargs='?',
                         help='output to refine folder')
     parser.add_argument('userhistoryfile', type=str,
-                        default='../Goodreads_mystery/path/user_history/user_history.txt',
+                        default='../Amazon_Music/path/user_history/user_history.txt',
                         nargs='?',
                         help='user history file')
 
-    # parser.add_argument('basedatafolder', type=str, default='../Goodreads_mystery/',
-    #                     nargs='?', help='this data base folder')
-    # parser.add_argument('outputinstancesfolder', type=str,
-    #                     default='../Goodreads_mystery/path/all_ui_ii_instance_paths/',
-    #                     nargs='?', help='this instances folder')
-    # parser.add_argument('refinefolder', type=str, default='../Goodreads_mystery/refine/',
-    #                     nargs='?',
-    #                     help='output to refine folder')
-    # parser.add_argument('userhistoryfile', type=str,
-    #                     default='../Goodreads_mystery/path/user_history/user_history.txt',
-    #                     nargs='?',
-    #                     help='user history file')
-    parser.add_argument('usize', type=int, default=11800, nargs='?')
-    parser.add_argument('isize', type=int, default=12142, nargs='?')
-    parser.add_argument('csize', type=int, default=3633, nargs='?')
-    parser.add_argument('bsize', type=int, default=1442, nargs='?')
+
+    parser.add_argument('usize', type=int, default=1450, nargs='?')
+    parser.add_argument('isize', type=int, default=11457, nargs='?')
+    parser.add_argument('csize', type=int, default=429, nargs='?')
+    parser.add_argument('bsize', type=int, default=1185, nargs='?')
 
     parser.add_argument('k', type=int, default=10, nargs='?')
     parser.add_argument('top_n_paths', type=int, default=10, nargs='?')
@@ -840,9 +694,7 @@ if __name__ == '__main__':
 
     Path(args.outputinstancesfolder).mkdir(parents=True, exist_ok=True)
 
-    # train_path(args,start=32,end=17800)
-    # final=get_path(args,start=32,end=17800)
-    # print('final',final)
+
     if args.path_type == 'user':
         ui_path(args)
     elif args.path_type == 'item':
@@ -851,26 +703,4 @@ if __name__ == '__main__':
         print('Please enter correct path type: user or item')
 
 
-    # Amazon_Music
-    # parser.add_argument('usize', type=int, default=1450, nargs='?')
-    # parser.add_argument('isize', type=int, default=11457, nargs='?')
-    # parser.add_argument('csize', type=int, default=429, nargs='?')
-    # parser.add_argument('bsize', type=int, default=1185, nargs='?')
 
-
-    # # Goodreads_mystery
-    # # parser.add_argument('usize', type=int, default=4600, nargs='?')
-    # # parser.add_argument('isize', type=int, default=36663, nargs='?')
-    # # parser.add_argument('csize', type=int, default=1592, nargs='?')
-    # # parser.add_argument('bsize', type=int, default=3790, nargs='?')
-    # # Goodreads_mystery
-    # parser.add_argument('usize', type=int, default=9300, nargs='?')
-    # parser.add_argument('isize', type=int, default=58743, nargs='?')
-    # parser.add_argument('csize', type=int, default=820, nargs='?')
-    # parser.add_argument('bsize', type=int, default=5404, nargs='?')
-
-    # # Goodreads
-    # parser.add_argument('usize', type=int, default=11800, nargs='?')
-    # parser.add_argument('isize', type=int, default=12142, nargs='?')
-    # parser.add_argument('asize', type=int, default=3633, nargs='?')
-    # parser.add_argument('psize', type=int, default=1442, nargs='?')
